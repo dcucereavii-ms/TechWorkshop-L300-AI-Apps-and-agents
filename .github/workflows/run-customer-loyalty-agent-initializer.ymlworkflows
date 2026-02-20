@@ -1,0 +1,87 @@
+name: Run Customer Loyalty Agent initializer
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "src/app/agents/customerLoyaltyAgent_initializer.py"
+      - "src/prompts/CustomerLoyaltyAgentPrompt.txt"
+      - "src/app/tools/discountLogic.py"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  run-initializer:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: "src/requirements.txt"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # Ensure Azure Projects SDK is available even if requirements.txt doesn't include it yet
+          pip install -U azure-ai-projects
+
+      # Recommended: store Azure auth / project settings as GitHub secrets (do not commit)
+      # This step only validates they exist and makes them available to the script.
+      - name: Validate Azure environment variables are set
+        shell: bash
+        run: |
+          set -euo pipefail
+          required_vars=(
+            AZURE_TENANT_ID
+            AZURE_CLIENT_ID
+            AZURE_CLIENT_SECRET
+            AZURE_SUBSCRIPTION_ID
+            AZURE_RESOURCE_GROUP
+            AZURE_PROJECT_NAME
+            AZURE_LOCATION
+          )
+          for v in "${required_vars[@]}"; do
+            if [[ -z "${!v:-}" ]]; then
+              echo "Missing required env var: $v"
+              exit 1
+            fi
+          done
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AZURE_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          AZURE_PROJECT_NAME: ${{ secrets.AZURE_PROJECT_NAME }}
+          AZURE_LOCATION: ${{ secrets.AZURE_LOCATION }}
+
+      - name: Run initializer
+        env:
+          # Expose the same secrets to the Python process
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AZURE_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          AZURE_PROJECT_NAME: ${{ secrets.AZURE_PROJECT_NAME }}
+          AZURE_LOCATION: ${{ secrets.AZURE_LOCATION }}
+
+          # Optional: if your code uses DefaultAzureCredential or similar
+          AZURE_AUTHORITY_HOST: ${{ secrets.AZURE_AUTHORITY_HOST }}
+
+          # Optional: if your agent initializer expects prompt paths, etc.
+          CUSTOMER_LOYALTY_PROMPT_PATH: "prompts/CustomerLoyaltyAgentPrompt.txt"
+        run: |
+          python -u app/agents/customerLoyaltyAgent_initializer.py
