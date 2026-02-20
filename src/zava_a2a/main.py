@@ -10,8 +10,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
 
-from api.chat import router as chat_router
-from agent.a2a_server import A2AServer
+from .agent.chat import router
+from .agent.a2a_server import A2AServer
 
 # Load environment variables
 load_dotenv()
@@ -74,7 +74,7 @@ templates_path = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=templates_path)
 
 # Include API routes
-app.include_router(chat_router, prefix="/api")
+app.include_router(router, prefix="/api")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -100,7 +100,7 @@ async def get_agent_card():
 if __name__ == "__main__":
     import uvicorn
     
-    host = os.getenv("HOST", "0.0.0.0")
+    host = os.getenv("HOST", "127.0.0.1")
     port = int(os.getenv("PORT", 8001))
     debug = os.getenv("DEBUG", "false").lower() == "true"
     
